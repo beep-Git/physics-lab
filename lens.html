@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>렌즈 작도 시뮬레이터</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 15px;
+      background-color: #f7f9fa;
+      font-family: 'Malgun Gothic', sans-serif;
+    }
+    canvas {
+      display: block;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border-radius: 4px;
+      background-color: #ffffff;
+    }
+    #ui-container {
+      margin-top: 15px;
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background-color: #eaeaea;
+    }
+  </style>
+</head>
+<body>
+
+<div id="ui-container"></div>
+
+<script>
+let f = 150;       // 초점 거리
+let objX = -250;   // 물체 X 좌표
+let objH = -100;   // 물체 높이
+let zoom = 1.0;    // 확대/축소 배율
+let dragging = false;
+
+// 상태 변수
+let isConvex = true;
+let showRays = true;
+let showGrid = true;
+
+function setup() {
+  createCanvas(1000, 600);
+  
+  // HTML div 레이아웃 안에 버튼들을 깔끔하게 배치합니다.
+  let btnDiv = select('#ui-container');
+  
+  createButton('확대하기').parent(btnDiv).mousePressed(() => zoom += 0.1);
+  createButton('축소하기').parent(btnDiv).mousePressed(() => zoom = max(0.5, zoom - 0.1));
+  createButton('볼록렌즈').parent(btnDiv).mousePressed(() => { isConvex = true; f = 150; });
+  createButton('오목렌즈').parent(btnDiv).mousePressed(() => { isConvex = false; f = -150; });
+  createButton('모눈종이 ON/OFF').parent(btnDiv).mousePressed(() => showGrid = !showGrid);
+  createButton('확인하기').parent(btnDiv).mousePressed(() => showRays = !showRays);
+}
+
+function draw() {
+  background(255);
+  
+  push();
+  translate(width / 2, height / 2);
+  scale(zoom);
+
+  // 1. 모눈종이
+  if (showGrid) {
+    stroke(220); strokeWeight(1 / zoom);
+    for (let i = -width; i < width; i += 40) line(i, -height, i, height);
+    for (let j = -height; j < height; j += 40) line(-width, j, width, j);
+  }
+
+  // 2. 광학축 및 초점
+  stroke(255, 0, 0); strokeWeight(2 / zoom);
+  line(-width, 0, width, 0);
+  
+  fill(0); noStroke(); textSize(14 / zoom);
+  let absF = abs(f);
+  ellipse(-absF, 0, 8, 8); text('F', -absF - 5, 20);
+  ellipse(absF, 0, 8, 8);  text('F', absF - 5, 20);
+
+  // 3. 렌즈 모양
+  stroke(0, 150, 255); strokeWeight(3 / zoom); noFill();
+  if (isConvex) {
+    beginShape();
+    for(let a = -0.5; a <= 0.5; a += 0.1) vertex(cos(a)*40 - 35, sin(a)*300);
+    for(let a = 0.5; a >= -0.5; a -= 0.1) vertex(-cos(a)*40 + 35, sin(a)*300);
+    endShape(CLOSE);
+  } else {
+    beginShape();
+    vertex(-25, -150); vertex(25, -150);
+    for(let a = -0.5; a <= 0.5; a += 0.1) vertex(-cos(a)*40 + 55, sin(a)*300);
+    vertex(25, 150); vertex(-25, 150);
+    for(let a = 0.5; a >= -0.5; a -= 0.1) vertex(cos(a)*40 - 55, sin(a)*300);
+    endShape(CLOSE);
+  }
+
+  // 4. 물체(초록색 화살표) 처리
+  if (dragging) {
+    objX = (mouseX - width / 2) / zoom;
+    objH = (mouseY - height / 2) / zoom;
+    if(objX > -5) objX = -5; 
+  }
+  
+  drawArrow(objX, 0, objX, objH, color(0, 200, 0), 5);
+
+  // 5. 광선 작도 및 상 계산
+  if (showRays) {
+    let do_dist = -objX;
+    let di_dist = (do_dist * f) / (do_dist - f);
+    let imgX = di_dist;
+    let imgH = -(di_dist / do_dist) * objH;
+
+    // --- 광선 1 (주축 평행 광선) ---
+    stroke(255, 150, 0); strokeWeight(1.5 / zoom);
+    line(objX, objH, 0, objH); 
+    
+    let xFar = width; 
+    let yFar = objH + (objH / -f) * xFar; 
+    line(0, objH, xFar, yFar); 
+    
+    if (di_dist < 0) { 
+      stroke(255, 150, 0, 100);
+      drawDashedLine(0, objH, imgX, imgH);
+    }
+
+    // --- 광선 2 (렌즈 중심 통과 광선) ---
+    stroke(0, 0, 255); strokeWeight(1.5 / zoom);
+    line(objX, objH, width, (objH / objX) * width);
+
+    if (di_dist < 0) {
+      stroke(0, 0, 255, 100); 
+      drawDashedLine(0, 0, imgX, imgH);
+    }
+    
+    // 6. 맺힌 상(분홍색 화살표) 그리기
+    let imgColor = color(255, 0, 150, (di_dist > 0) ? 255 : 150);
+    drawArrow(imgX, 0, imgX, imgH, imgColor, 5);
+  }
+  pop();
+  
+  fill(50); noStroke(); textSize(14);
+  text("사용 방법: 물체 끝(화살표 머리)을 드래그하여 움직여 보세요.", 20, 30);
+}
+
+function drawArrow(x1, y1, x2, y2, clr, sz) {
+  stroke(clr); strokeWeight(sz / zoom);
+  line(x1, y1, x2, y2);
+  push();
+  translate(x2, y2);
+  let angle = atan2(y2 - y1, x2 - x1);
+  rotate(angle);
+  fill(clr); noStroke();
+  let headSize = 10 / zoom;
+  triangle(0, 0, -headSize, -headSize/2, -headSize, headSize/2);
+  pop();
+}
+
+function drawDashedLine(x1, y1, x2, y2) {
+  let d = dist(x1, y1, x2, y2);
+  for (let i = 0; i < d; i += 10) {
+    let tx1 = lerp(x1, x2, i / d);
+    let ty1 = lerp(y1, y2, i / d);
+    let tx2 = lerp(x1, x2, min(i + 5, d) / d);
+    let ty2 = lerp(y1, y2, min(i + 5, d) / d);
+    line(tx1, ty1, tx2, ty2);
+  }
+}
+
+function mousePressed() {
+  let d = dist((mouseX - width/2)/zoom, (mouseY - height/2)/zoom, objX, objH);
+  if (d < 30) dragging = true;
+}
+
+function mouseReleased() {
+  dragging = false;
+}
+</script>
+
+</body>
+</html>
