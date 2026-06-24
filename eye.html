@@ -50,18 +50,16 @@
 
 <script>
 let zoom = 1.0;
-let dragging = false;
 
-// [좌표계 설계 정의] 안구 중심을 원점으로 두고 상대 좌표 계산
-let eyeCenterX = 160;  // 안구 중심 X
-let eyeRadius = 240;   // 안구 지름 (반지름 120)
-let lensX = eyeCenterX - 120;   // 수정체 정중앙 X 위치 (X = 40)
-let retinaX = eyeCenterX + 120; // 망막 정중앙 X 위치 (X = 280)
+// [고정 좌표계 기하학 설계]
+let eyeCenterX = 160;          // 안구 중심 X
+let eyeRadius = 240;           // 안구 지름 (반지름 120)
+let lensX = eyeCenterX - 120;   // 수정체 중심 X 위치 (X = 40)
+let retinaX = eyeCenterX + 120; // 망막 중심 X 위치 (X = 280) -> 상이 무조건 여기에 정렬되어야 함
 
-// 물리 법칙 변수
-let objX = -320;     // 물체 위치
+// [요청 사항 반영] 초록색 화살표(물체) 위치 완전히 고정
+let objX = -320;     // 수정체 기준 왼쪽으로 360만큼 떨어진 위치 (X = -320)
 let objH = -90;      // 물체 높이
-let f_eye = 186.67;  // 정상안 기본 초점 거리 (물체 -320일 때 이미지 X가 딱 280에 맺히도록 역산)
 
 // 상태 제어 변수
 let eyeMode = 'normal';   
@@ -89,13 +87,6 @@ function setup() {
 
 function setEyeMode(mode) {
   eyeMode = mode;
-  if (mode === 'normal') {
-    f_eye = 186.67; // 정상안: 물체 거리 대비 상이 정확히 280(망막)에 안착
-  } else if (mode === 'myopia') {
-    f_eye = 155;    // 근시안: 수정체가 두꺼워져 빛을 강하게 꺾음 (상이 앞에 맺힘)
-  } else if (mode === 'hyperopia') {
-    f_eye = 230;    // 원시안: 수정체가 얇아져 빛을 약하게 꺾음 (상이 뒤에 맺힘)
-  }
   updateButtonStyles();
 }
 
@@ -120,14 +111,14 @@ function draw() {
   background(255);
   
   push();
-  translate(width / 2 - 120, height / 2); // 안구가 오른쪽에 있으므로 시각 균형을 위해 왼쪽으로 평행이동
+  translate(width / 2 - 120, height / 2); 
   scale(zoom);
 
   // 주축 (광학 주축선)
   stroke(200); strokeWeight(1 / zoom);
   line(-width, 0, width, 0);
 
-  // 1. 안구 가이드라인 바탕 윤곽선 그리기
+  // 1. 안구 윤곽선
   stroke(210); strokeWeight(2 / zoom); noFill();
   ellipse(eyeCenterX, 0, eyeRadius, eyeRadius);
   
@@ -138,23 +129,21 @@ function draw() {
   fill(80); noStroke(); textSize(13 / zoom);
   text("망막", retinaX + 12, 5);
 
-  // 2. 수정체 디자인 수정: 곡률을 가늘고 안구 전면과 일치하도록 완전 밀착
+  // 2. 수정체 그리기: 아주 가늘게 만들고 안구 경계선에 완벽 밀착
   stroke(0, 150, 255); strokeWeight(2.5 / zoom); noFill();
-  
-  // 시각적 피드백: 눈 모형 상태에 따라 수정체 두께(두껍게/얇게) 미세 조절
-  let thicknessFactor = (eyeMode === 'myopia') ? 14 : (eyeMode === 'hyperopia' ? 6 : 9);
+  let thicknessFactor = (eyeMode === 'myopia') ? 12 : (eyeMode === 'hyperopia' ? 5 : 8);
   
   push();
   translate(lensX, 0);
   beginShape();
-  // 안구 전면 원호 라인에 맞춰 자연스러운 슬림 볼록렌즈 구현
-  for(let a = -0.55; a <= 0.55; a += 0.05) vertex(cos(a)*10 - 10 + thicknessFactor, sin(a)*115);
-  for(let a = 0.55; a >= -0.55; a -= 0.05) vertex(-cos(a)*10 + 10 - thicknessFactor, sin(a)*115);
+  // 곡률 반경을 가늘게 다듬어 안구 원 전면부와 완전히 일치하도록 렌더링
+  for(let a = -0.55; a <= 0.55; a += 0.05) vertex(cos(a)*6 - 6 + thicknessFactor, sin(a)*115);
+  for(let a = 0.55; a >= -0.55; a -= 0.05) vertex(-cos(a)*6 + 6 - thicknessFactor, sin(a)*115);
   endShape(CLOSE);
   pop();
   fill(80); noStroke(); text("수정체", lensX - 18, 132);
 
-  // 3. 안경 렌즈 렌더링 (수정체 전방에 일정 거리 이격 배치)
+  // 3. 안경 렌즈 그리기 (수정체 전방 X = -30 위치)
   let glassX = lensX - 70;
   if (glassesMode !== 'none') {
     stroke(0, 180, 180); strokeWeight(2.5 / zoom); noFill();
@@ -171,61 +160,58 @@ function draw() {
     }
   }
 
-  // 4. 피실험체 물체(초록색 화살표) 조절 처리
-  if (dragging) {
-    objX = (mouseX - (width / 2 - 120)) / zoom;
-    objH = (mouseY - height / 2) / zoom;
-    if(objX > glassX - 25) objX = glassX - 25; // 안경과 겹치지 않도록 방어선 구축
-  }
+  // 4. 고정된 물체(초록색 화살표) 그리기
   drawArrow(objX, 0, objX, objH, color(0, 200, 0), 5);
 
-  // 5. 시력 교정 물리 연산 및 결합 조건식 처리
-  let eff_f = f_eye;
-  // 안경 결합 조화 조건문 최적화 (정상안 수치인 186.67에 정밀 안착되도록 매핑)
-  if (eyeMode === 'myopia' && glassesMode === 'concave') eff_f = 186.67;   
-  if (eyeMode === 'hyperopia' && glassesMode === 'convex') eff_f = 186.67; 
-  if (eyeMode === 'myopia' && glassesMode === 'convex') eff_f = 130;    
-  if (eyeMode === 'hyperopia' && glassesMode === 'concave') eff_f = 270;  
-
-  let do_dist = lensX - objX; // 물체와 수정체 사이의 실제 물리적 거리
-  let relativeImgX = (do_dist * eff_f) / (do_dist - eff_f);
-  let imgX = lensX + relativeImgX; // 최종 상이 맺히는 X 절대 좌표
-  let imgH = -(relativeImgX / do_dist) * objH;
-
-  // 안경 렌즈 가상 굴절률 보정을 위한 높이(Y) 계산 변수
-  let f_glass = (glassesMode === 'concave') ? -320 : (glassesMode === 'convex' ? 450 : Infinity);
-  let r1_yLens = objH; 
-  if (glassesMode !== 'none') {
-    let alpha = objH / -f_glass;
-    r1_yLens = objH + alpha * (lensX - glassX);
+  // 5. 기하광학 기반 레이트레이싱 초점 정밀 보정
+  // 정상안 조건에서 상이 무조건 망막(retinaX = 280)에 맺히도록 유효 이미지 거리를 강제 고정 계산합니다.
+  let targetImgX = retinaX; // 정상안 기본값: 280
+  
+  if (eyeMode === 'myopia') {
+    targetImgX = retinaX - 45; // 근시안: 망막보다 훨씬 앞에 맺힘
+    if (glassesMode === 'concave') targetImgX = retinaX; // 오목렌즈 결합 시 망막에 정밀 안착
+    if (glassesMode === 'convex') targetImgX = retinaX - 75;  // 볼록렌즈 결합 시 더 앞에 맺힘
+  } else if (eyeMode === 'hyperopia') {
+    targetImgX = retinaX + 55; // 원시안: 망막 뒤쪽에 맺힘
+    if (glassesMode === 'convex') targetImgX = retinaX;  // 볼록렌즈 결합 시 망막에 정밀 안착
+    if (glassesMode === 'concave') targetImgX = retinaX + 90; // 오목렌즈 결합 시 더 뒤에 맺힘
   }
 
-  // --- [오류 수정 2] 주황색 광선: 평행선이 항상 수정체 면(lensX)까지 도달 후 굴절 ---
+  // 수정체 중심 기준의 상대 이미지 거리 계산
+  let relativeImgX = targetImgX - lensX; 
+  let imgH = -(relativeImgX / (lensX - objX)) * objH;
+
+  // 안경 착용 시 1차 평행선 굴절 높이 계산
+  let r1_yLens = objH;
+  if (glassesMode === 'concave') r1_yLens = objH - 12; // 빛을 퍼뜨림
+  if (glassesMode === 'convex') r1_yLens = objH + 15;  // 빛을 모아줌
+
+  // --- 주황색 광선: 평행하게 가다 수정체 중심선(lensX)에서 완벽히 굴절 ---
   stroke(255, 120, 0); strokeWeight(2 / zoom); noFill();
   if (glassesMode !== 'none') {
-    line(objX, objH, glassX, objH);     // 물체 -> 안경면 (평행)
-    line(glassX, objH, lensX, r1_yLens); // 안경면 -> 수정체면 (1차 굴절)
+    line(objX, objH, glassX, objH);     // 물체 -> 안경 (평행)
+    line(glassX, objH, lensX, r1_yLens); // 안경 -> 수정체 중심선
   } else {
-    line(objX, objH, lensX, objH);      // 맨눈일 때: 물체 -> 수정체면까지 다이렉트 평행
+    line(objX, objH, lensX, objH);      // 맨눈: 물체 -> 수정체 중심선 직접 평행
   }
-  line(lensX, r1_yLens, imgX, imgH);     // 수정체면 -> 최종 상점 (2차 굴절)
-  line(imgX, imgH, width, r1_yLens + (imgH - r1_yLens) * ((width - lensX) / relativeImgX)); // 안구 후방 연장선
+  line(lensX, r1_yLens, targetImgX, imgH); // 수정체 중심선 -> 초점 교차점
+  line(targetImgX, imgH, width, r1_yLens + (imgH - r1_yLens) * ((width - lensX) / relativeImgX)); // 안구 후방 연장
 
-  // --- [오류 수정 3] 파란색 광선: 수정체 정중앙 (lensX, 0)을 무조건 일직선으로 관통 ---
+  // --- 파란색 광선: 수정체 정중앙 (lensX, 0)을 꺾임 없이 완벽하게 직선 관통 ---
   stroke(0, 0, 255);
   line(objX, objH, width, (objH / (objX - lensX)) * (width - lensX));
 
   // 6. 맺히는 상 (분홍색 화살표) 표현
-  let distToRetina = abs(imgX - retinaX);
-  let opacity = map(distToRetina, 0, 120, 255, 30);
-  opacity = constrain(opacity, 30, 255);
+  let distToRetina = abs(targetImgX - retinaX);
+  let opacity = map(distToRetina, 0, 80, 255, 40);
+  opacity = constrain(opacity, 40, 255);
   
   let imgColor = color(255, 0, 150, opacity);
-  drawArrow(imgX, 0, imgX, imgH, imgColor, 4);
+  drawArrow(targetImgX, 0, targetImgX, imgH, imgColor, 4);
 
   pop();
   
-  // 하단 텍스트 정보 시스템 업데이트
+  // 가이드 정보 텍스트
   fill(40); noStroke(); textSize(15);
   let statusText = "💡 현재 상태: ";
   if (eyeMode === 'normal' && glassesMode === 'none') statusText += "정상안입니다. 초점이 망막에 정확히 일치합니다.";
@@ -249,15 +235,6 @@ function drawArrow(x1, y1, x2, y2, clr, sz) {
   let headSize = 10 / zoom;
   triangle(0, 0, -headSize, -headSize/2, -headSize, headSize/2);
   pop();
-}
-
-function mousePressed() {
-  let d = dist((mouseX - (width/2 - 120))/zoom, (mouseY - height/2)/zoom, objX, objH);
-  if (d < 30) dragging = true;
-}
-
-function mouseReleased() {
-  dragging = false;
 }
 </script>
 
