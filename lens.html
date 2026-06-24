@@ -91,19 +91,21 @@ function draw() {
   ellipse(-absF, 0, 8, 8); text('F', -absF - 5, 20);
   ellipse(absF, 0, 8, 8);  text('F', absF - 5, 20);
 
-  // 3. 렌즈 모양
+  // 3. 렌즈 모양 (가장자리 높이를 500으로 확장)
   stroke(0, 150, 255); strokeWeight(3 / zoom); noFill();
   if (isConvex) {
     beginShape();
-    for(let a = -0.5; a <= 0.5; a += 0.1) vertex(cos(a)*40 - 35, sin(a)*300);
-    for(let a = 0.5; a >= -0.5; a -= 0.1) vertex(-cos(a)*40 + 35, sin(a)*300);
+    // 세로 반경을 250(총 높이 500)으로 확장
+    for(let a = -0.5; a <= 0.5; a += 0.1) vertex(cos(a)*40 - 35, sin(a)*500); 
+    for(let a = 0.5; a >= -0.5; a -= 0.1) vertex(-cos(a)*40 + 35, sin(a)*500);
     endShape(CLOSE);
   } else {
     beginShape();
-    vertex(-25, -150); vertex(25, -150);
-    for(let a = -0.5; a <= 0.5; a += 0.1) vertex(-cos(a)*40 + 55, sin(a)*300);
-    vertex(25, 150); vertex(-25, 150);
-    for(let a = 0.5; a >= -0.5; a -= 0.1) vertex(cos(a)*40 - 55, sin(a)*300);
+    // 오목렌즈의 위아래 평평한 면 위치를 -250과 250으로 변경
+    vertex(-25, -250); vertex(25, -250);
+    for(let a = -0.5; a <= 0.5; a += 0.1) vertex(-cos(a)*40 + 55, sin(a)*500);
+    vertex(25, 250); vertex(-25, 250);
+    for(let a = 0.5; a >= -0.5; a -= 0.1) vertex(cos(a)*40 - 55, sin(a)*500);
     endShape(CLOSE);
   }
 
