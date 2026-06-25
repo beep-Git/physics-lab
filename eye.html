@@ -191,4 +191,65 @@ function draw() {
     let alpha = objH / -f_glass;
     r1_yLens = objH + alpha * (lensX - glassX);
     
-    line(objX, objH, glassX, objH);      // 물체 -> 안경면 (큰
+    line(objX, objH, glassX, objH);      // 물체 -> 안경면 (큰 안경 렌즈를 정통으로 통과)
+    line(glassX, objH, lensX, r1_yLens);  // 안경면 -> 수정체 중심선
+  } else {
+    line(objX, objH, lensX, objH);      // 맨눈: 물체 -> 수정체 중심선 직접 평행
+  }
+  line(lensX, r1_yLens, targetImgX, imgH); 
+  line(targetImgX, imgH, width, r1_yLens + (imgH - r1_yLens) * ((width - lensX) / relativeImgX)); 
+
+  // --- 파란색 광선: 수정체 정중앙 (lensX, 0)을 꺾임 없이 직선 관통 ---
+  stroke(0, 0, 255);
+  line(objX, objH, width, (objH / (objX - lensX)) * (width - lensX));
+
+  // 7. 안구 내부에 실제 물리적 초점(F) 마커 표시
+  let f_val = (lensX - objX) * relativeImgX / (lensX - objX + relativeImgX); 
+  let focusX = lensX + f_val;
+  
+  if (focusX > lensX && focusX < retinaX + 120) {
+    fill(0); noStroke();
+    ellipse(focusX, 0, 6, 6);
+    textSize(11 / zoom);
+    text("F", focusX - 3, 18);
+  }
+
+  // 8. 맺히는 상 (분홍색 화살표) 표현
+  let distToRetina = abs(targetImgX - retinaX);
+  let opacity = map(distToRetina, 0, 80, 255, 40);
+  opacity = constrain(opacity, 40, 255);
+  
+  let imgColor = color(255, 0, 150, opacity);
+  drawArrow(targetImgX, 0, targetImgX, imgH, imgColor, 4);
+
+  pop();
+  
+  // 하단 메시지 창
+  fill(40); noStroke(); textSize(15);
+  let statusText = "💡 현재 상태: ";
+  if (eyeMode === 'normal' && glassesMode === 'none') statusText += "정상안입니다. 초점이 망막에 정확히 일치합니다.";
+  else if (eyeMode === 'myopia' && glassesMode === 'none') statusText += "근시안입니다. 수정체가 두꺼워 상이 망막 앞에 맺힙니다.";
+  else if (eyeMode === 'myopia' && glassesMode === 'concave') statusText += "근시 교정 완료! 오목렌즈가 빛을 적절히 퍼뜨려 초점을 망막 위로 밀어줍니다.";
+  else if (eyeMode === 'hyperopia' && glassesMode === 'none') statusText += "원시안입니다. 수정체가 얇아 상이 망막 뒤에 맺힙니다.";
+  else if (eyeMode === 'hyperopia' && glassesMode === 'convex') statusText += "원시 교정 완료! 볼록렌즈가 빛을 미리 모아주어 초점을 망막 위로 당겨줍니다.";
+  else statusText += "잘못된 안경 렌즈 선택으로 초점이 망막에서 더욱 멀어집니다.";
+  
+  text(statusText, 25, 40);
+}
+
+function drawArrow(x1, y1, x2, y2, clr, sz) {
+  stroke(clr); strokeWeight(sz / zoom);
+  line(x1, y1, x2, y2);
+  push();
+  translate(x2, y2);
+  let angle = atan2(y2 - y1, x2 - x1);
+  rotate(angle);
+  fill(clr); noStroke();
+  let headSize = 10 / zoom;
+  triangle(0, 0, -headSize, -headSize/2, -headSize, headSize/2);
+  pop();
+}
+</script>
+
+</body>
+</html>
