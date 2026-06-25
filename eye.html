@@ -52,14 +52,14 @@
 let zoom = 1.0;
 
 // [고정 좌표계 기하학 설계]
-let eyeCenterX = 160;          // 안구 중심 X
+let eyeCenterX = 180;          // 안구 중심 X
 let eyeRadius = 240;           // 안구 지름 (반지름 120)
-let lensX = eyeCenterX - 120;   // 수정체 중심 X 위치 (X = 40)
-let retinaX = eyeCenterX + 120; // 망막 중심 X 위치 (X = 280) -> 상이 무조건 여기에 정렬되어야 함
+let lensX = eyeCenterX - 120;   // 수정체 중심 X 위치 (X = 60)
+let retinaX = eyeCenterX + 120; // 망막 중심 X 위치 (X = 300) -> 상이 맺힐 목표 지점
 
-// [요청 사항 반영] 초록색 화살표(물체) 위치 완전히 고정
-let objX = -320;     // 수정체 기준 왼쪽으로 360만큼 떨어진 위치 (X = -320)
-let objH = -90;      // 물체 높이
+// [물체 고정 설정]
+let objX = -300;     // 물체 위치
+let objH = -70;      // 물체 높이 (화살표 축소를 위해 기본 높이를 조금 낮춤)
 
 // 상태 제어 변수
 let eyeMode = 'normal';   
@@ -129,21 +129,21 @@ function draw() {
   fill(80); noStroke(); textSize(13 / zoom);
   text("망막", retinaX + 12, 5);
 
-  // 2. 수정체 그리기: 아주 가늘게 만들고 안구 경계선에 완벽 밀착
+  // 2. [요청 반영 1] 수정체를 시원하게 큰 볼록렌즈 크기로 변경
   stroke(0, 150, 255); strokeWeight(2.5 / zoom); noFill();
-  let thicknessFactor = (eyeMode === 'myopia') ? 12 : (eyeMode === 'hyperopia' ? 5 : 8);
+  let thickness = (eyeMode === 'myopia') ? 35 : (eyeMode === 'hyperopia' ? 18 : 25);
   
   push();
   translate(lensX, 0);
   beginShape();
-  // 곡률 반경을 가늘게 다듬어 안구 원 전면부와 완전히 일치하도록 렌더링
-  for(let a = -0.55; a <= 0.55; a += 0.05) vertex(cos(a)*6 - 6 + thicknessFactor, sin(a)*115);
-  for(let a = 0.55; a >= -0.55; a -= 0.05) vertex(-cos(a)*6 + 6 - thicknessFactor, sin(a)*115);
+  // 세로 크기를 200(반지름 100) 스케일로 키워 주황색 광선이 여유롭게 렌즈 본체를 관통하도록 수정
+  for(let a = -0.45; a <= 0.45; a += 0.05) vertex(cos(a)*40 - 40 + thickness, sin(a)*200);
+  for(let a = 0.45; a >= -0.45; a -= 0.05) vertex(-cos(a)*40 + 40 - thickness, sin(a)*200);
   endShape(CLOSE);
   pop();
-  fill(80); noStroke(); text("수정체", lensX - 18, 132);
+  fill(80); noStroke(); text("수정체", lensX - 18, 120);
 
-  // 3. 안경 렌즈 그리기 (수정체 전방 X = -30 위치)
+  // 3. 안경 렌즈 그리기 (X = lensX - 70 위치)
   let glassX = lensX - 70;
   if (glassesMode !== 'none') {
     stroke(0, 180, 180); strokeWeight(2.5 / zoom); noFill();
@@ -163,45 +163,61 @@ function draw() {
   // 4. 고정된 물체(초록색 화살표) 그리기
   drawArrow(objX, 0, objX, objH, color(0, 200, 0), 5);
 
-  // 5. 기하광학 기반 레이트레이싱 초점 정밀 보정
-  // 정상안 조건에서 상이 무조건 망막(retinaX = 280)에 맺히도록 유효 이미지 거리를 강제 고정 계산합니다.
-  let targetImgX = retinaX; // 정상안 기본값: 280
+  // 5. 기하광학 기반 상태별 이미지 초점 거리 설정
+  let targetImgX = retinaX; // 정상안 기본 타겟: 망막선 (300)
   
   if (eyeMode === 'myopia') {
-    targetImgX = retinaX - 45; // 근시안: 망막보다 훨씬 앞에 맺힘
-    if (glassesMode === 'concave') targetImgX = retinaX; // 오목렌즈 결합 시 망막에 정밀 안착
-    if (glassesMode === 'convex') targetImgX = retinaX - 75;  // 볼록렌즈 결합 시 더 앞에 맺힘
+    targetImgX = retinaX - 50; // 근시: 망막 앞쪽에 상 형성
+    if (glassesMode === 'concave') targetImgX = retinaX; // 오목렌즈 교정 성공
+    if (glassesMode === 'convex') targetImgX = retinaX - 85; 
   } else if (eyeMode === 'hyperopia') {
-    targetImgX = retinaX + 55; // 원시안: 망막 뒤쪽에 맺힘
-    if (glassesMode === 'convex') targetImgX = retinaX;  // 볼록렌즈 결합 시 망막에 정밀 안착
-    if (glassesMode === 'concave') targetImgX = retinaX + 90; // 오목렌즈 결합 시 더 뒤에 맺힘
+    targetImgX = retinaX + 60; // 원시: 망막 뒤쪽에 상 형성
+    if (glassesMode === 'convex') targetImgX = retinaX;  // 볼록렌즈 교정 성공
+    if (glassesMode === 'concave') targetImgX = retinaX + 100;
   }
 
-  // 수정체 중심 기준의 상대 이미지 거리 계산
+  // 수정체 중심(lensX) 기준 실제 상의 가로 상대 거리
   let relativeImgX = targetImgX - lensX; 
-  let imgH = -(relativeImgX / (lensX - objX)) * objH;
+  // [요청 반영 2] 상의 배율 공식을 조정하여 화살표 높이를 망막 안쪽에 쏙 들어가도록 대폭 축소
+  let imgH = -(relativeImgX / (lensX - objX)) * objH * 0.7; 
 
-  // 안경 착용 시 1차 평행선 굴절 높이 계산
-  let r1_yLens = objH;
-  if (glassesMode === 'concave') r1_yLens = objH - 12; // 빛을 퍼뜨림
-  if (glassesMode === 'convex') r1_yLens = objH + 15;  // 빛을 모아줌
-
-  // --- 주황색 광선: 평행하게 가다 수정체 중심선(lensX)에서 완벽히 굴절 ---
+  // 6. [요청 반영 3] 안경 유무에 따른 주황색 광선 경로 최적화 (2단 꺾임 버그 수정)
   stroke(255, 120, 0); strokeWeight(2 / zoom); noFill();
+  
+  let r1_yLens = objH; // 수정체 중심선 도달 시의 최종 Y 높이
   if (glassesMode !== 'none') {
-    line(objX, objH, glassX, objH);     // 물체 -> 안경 (평행)
-    line(glassX, objH, lensX, r1_yLens); // 안경 -> 수정체 중심선
+    // 안경이 있을 때만 안경면(glassX)에서 1차 유도 굴절 발생
+    let f_glass = (glassesMode === 'concave') ? -350 : 450;
+    let alpha = objH / -f_glass;
+    r1_yLens = objH + alpha * (lensX - glassX);
+    
+    line(objX, objH, glassX, objH);      // 물체 -> 안경 (수평선)
+    line(glassX, objH, lensX, r1_yLens);  // 안경 -> 수정체 중심선 (1차 사선)
   } else {
-    line(objX, objH, lensX, objH);      // 맨눈: 물체 -> 수정체 중심선 직접 평행
+    // 맨눈일 때는 중간 꺾임 없이 수정체 중심선(lensX)까지 일직선 수평 비행!
+    line(objX, objH, lensX, objH);
   }
-  line(lensX, r1_yLens, targetImgX, imgH); // 수정체 중심선 -> 초점 교차점
+  // 수정체 중심선(lensX)에서 초점 위치(targetImgX)까지 최종 대칭 굴절선 그리기
+  line(lensX, r1_yLens, targetImgX, imgH); 
   line(targetImgX, imgH, width, r1_yLens + (imgH - r1_yLens) * ((width - lensX) / relativeImgX)); // 안구 후방 연장
 
-  // --- 파란색 광선: 수정체 정중앙 (lensX, 0)을 꺾임 없이 완벽하게 직선 관통 ---
+  // --- 파란색 광선: 수정체 정중앙 (lensX, 0)을 무조건 칼같이 직선 관통 ---
   stroke(0, 0, 255);
   line(objX, objH, width, (objH / (objX - lensX)) * (width - lensX));
 
-  // 6. 맺히는 상 (분홍색 화살표) 표현
+  // 7. [요청 반영 4] 안구 내부에 실제 물리적 초점(F) 마커 표시하기
+  // 주황색 평행선이 주축과 만나는 점이 제2초점이 되므로, r1_yLens가 입사하는 경로의 연장선상 초점 검출
+  let f_val = (lensX - objX) * relativeImgX / (lensX - objX + relativeImgX); // 합성 렌즈 공식 역산 f
+  let focusX = lensX + f_val;
+  
+  if (focusX > lensX && focusX < retinaX + 120) {
+    fill(0); noStroke();
+    ellipse(focusX, 0, 6, 6);
+    textSize(11 / zoom);
+    text("F", focusX - 3, 18);
+  }
+
+  // 8. 맺히는 상 (분홍색 화살표) 표현
   let distToRetina = abs(targetImgX - retinaX);
   let opacity = map(distToRetina, 0, 80, 255, 40);
   opacity = constrain(opacity, 40, 255);
@@ -211,7 +227,7 @@ function draw() {
 
   pop();
   
-  // 가이드 정보 텍스트
+  // 하단 메시지 창
   fill(40); noStroke(); textSize(15);
   let statusText = "💡 현재 상태: ";
   if (eyeMode === 'normal' && glassesMode === 'none') statusText += "정상안입니다. 초점이 망막에 정확히 일치합니다.";
